@@ -1,70 +1,76 @@
 import os
+import logging
+import asyncio
 from pathlib import Path
-import yt_dlp
+from yt_dlp import YoutubeDL
 from telegram import Update, InputFile
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Railway env me set karna hoga
+# Telegram Bot Token (Railway me env variable set karo)
+TOKEN = os.getenv("BOT_TOKEN")
 
-# max 50MB (Telegram limit)
-MAX_BYTES = 50 * 1024 * 1024  
+# Logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-TEMP_DIR = Path("downloads")
-TEMP_DIR.mkdir(exist_ok=True)
+# Download directory
+DOWNLOAD_DIR = Path("downloads")
+DOWNLOAD_DIR.mkdir(exist_ok=True)
 
-SUPPORTED_SITES = ["youtube.com", "youtu.be", "instagram.com", "instagr.am"]
-
-def is_supported(url: str) -> bool:
-    return any(s in url.lower() for s in SUPPORTED_SITES)
-
+# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me a YouTube or Instagram link 🔗")
+    await update.message.reply_text("🎥 Send me a YouTube or Instagram link 🔗")
 
+# Download function
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
-    if not is_supported(url):
-        await update.message.reply_text("❌ Only YouTube and Instagram supported.")
+    if not url.startswith(("http://", "https://")):
+        await update.message.reply_text("⚠️ Invalid link.")
         return
 
-    user_dir = TEMP_DIR / str(update.effective_user.id)
+    user_dir = DOWNLOAD_DIR / str(update.message.from_user.id)
     user_dir.mkdir(exist_ok=True)
 
+    opts = {
+        "outtmpl": str(user_dir / "%(title).70s.%(ext)s"),
+        "format": "bestvideo+bestaudio/best",
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+
     try:
-        opts = {
-            "outtmpl": str(user_dir / "%(title).70s.%(ext)s"),
-            "format": "bestvideo+bestaudio/best",
-            "merge_output_format": "mp4",
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-        }
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
+        loop = asyncio.get_event_loop()
+        def _download():
+            with YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                return ydl.prepare_filename(info), info
 
-        file = Path(filename)
+        file_path, info = await loop.run_in_executor(None, _download)
+        file = Path(file_path)
 
-        if file.stat().st_size > MAX_BYTES:
-            await update.message.reply_text(
-                f"❌ File too large ({round(file.stat().st_size/1024/1024,1)} MB)."
-            )
-        else:
+        # Send file to user
+        with open(file, "rb") as f:
             await update.message.reply_video(
-                video=InputFile(file, filename=file.name),
+                video=InputFile(f, filename=file.name),
                 caption=info.get("title", "")
             )
 
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Error: {e}")
-    finally:
-        for f in user_dir.glob("*"):
-            f.unlink()
-        user_dir.rmdir()
+        # Cleanup
+        file.unlink(missing_ok=True)
 
+    except Exception as e:
+        logger.error(f"Download error: {e}")
+        await update.message.reply_text(f"⚠️ Error: {e}")
+
+# Main function
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_video))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
+
     app.run_polling()
 
 if __name__ == "__main__":
