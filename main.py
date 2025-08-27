@@ -4,9 +4,9 @@ import asyncio
 from pathlib import Path
 from yt_dlp import YoutubeDL
 from telegram import Update, InputFile
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Telegram Bot Token (Railway me env variable set karo)
+# Telegram Bot Token
 TOKEN = os.getenv("BOT_TOKEN")
 
 # Logs
@@ -17,13 +17,17 @@ logger = logging.getLogger(__name__)
 DOWNLOAD_DIR = Path("downloads")
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
-# Start command
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎥 Send me a YouTube or Instagram link 🔗")
+    await update.message.reply_text("🎥 Use command:\n\n`/d <youtube/instagram link>`")
 
-# Download function
+# /d command
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text.strip()
+    if not context.args:
+        await update.message.reply_text("⚠️ Usage: `/d <link>`")
+        return
+
+    url = context.args[0]
     if not url.startswith(("http://", "https://")):
         await update.message.reply_text("⚠️ Invalid link.")
         return
@@ -50,26 +54,24 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_path, info = await loop.run_in_executor(None, _download)
         file = Path(file_path)
 
-        # Send file to user
         with open(file, "rb") as f:
             await update.message.reply_video(
                 video=InputFile(f, filename=file.name),
                 caption=info.get("title", "")
             )
 
-        # Cleanup
         file.unlink(missing_ok=True)
 
     except Exception as e:
         logger.error(f"Download error: {e}")
         await update.message.reply_text(f"⚠️ Error: {e}")
 
-# Main function
+# Main
 def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
+    app.add_handler(CommandHandler("d", download_video))   # 👈 only /d command
 
     app.run_polling()
 
