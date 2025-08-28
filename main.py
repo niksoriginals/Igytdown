@@ -20,6 +20,9 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "format": "mp4",
         "outtmpl": "video.%(ext)s",
         "quiet": True,
+        "noplaylist": True,
+        "nocheckcertificate": True,
+        "cachedir": False,
     }
 
     try:
@@ -39,7 +42,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Error: {e}")
 
 
-# ---------------- MUSIC DOWNLOADER ----------------
+# ---------------- MUSIC DOWNLOADER (FAST) ----------------
 async def download_song(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("⚠️ Usage: /song <name or link>")
@@ -49,9 +52,12 @@ async def download_song(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🎵 Fetching: {query}")
 
     ydl_opts = {
-        "format": "bestaudio[ext=m4a]",
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
         "outtmpl": "music.%(ext)s",
         "quiet": True,
+        "noplaylist": True,
+        "nocheckcertificate": True,
+        "cachedir": False,
     }
 
     try:
