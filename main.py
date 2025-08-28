@@ -14,7 +14,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     url = context.args[0]
-    await update.message.reply_text(f"📥 Downloading video...\n\n🔗 {url}")
+    await update.message.reply_text(f"📥 Downloading video...")
 
     ydl_opts = {
         "format": "mp4",
