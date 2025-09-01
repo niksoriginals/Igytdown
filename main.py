@@ -89,7 +89,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("d", download_video))
-    app.add_handler(CommandHandler("song", download_song))
+    
 
     print("🚀 Bot is running...")
     app.run_polling()
