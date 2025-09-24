@@ -4,7 +4,7 @@ from telegram import Update, InputFile
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Apna bot token yaha daal
-BOT_TOKEN = os.getenv("8370660490:AAHVgzyJOocunWNp8m7FMrOZOvXYszDX52w")
+BOT_TOKEN = "8370660490:AAHVgzyJOocunWNp8m7FMrOZOvXYszDX52w"
 
 
 # ---------------- VIDEO DOWNLOADER ----------------
